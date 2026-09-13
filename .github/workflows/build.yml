@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main", "principal" ]
+    branches: [ "main", "principal", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
 
       - name: Build APK
         run: |
-          flet build apk
+          flet build apk -y
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
