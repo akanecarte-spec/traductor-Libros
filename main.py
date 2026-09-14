@@ -1,3 +1,4 @@
+
 import asyncio
 import os
 import re
@@ -13,8 +14,14 @@ from typing import Optional
 import flet as ft
 
 
+# ============================================================
+# CONFIGURACIÓN GENERAL
+# ============================================================
+
 APP_NAME = "Traductor Profesional de Libros"
+
 DB_NAME = "books_translator.db"
+
 DEFAULT_MODEL = "gpt-4o-mini"
 
 TARGET_LANGUAGES = {
@@ -30,7 +37,7 @@ MAX_CHUNK_CHARS = 9000
 
 
 # ============================================================
-# DIRECTORIOS
+# DIRECTORIOS DE LA APLICACIÓN
 # ============================================================
 
 def get_app_data_dir() -> Path:
@@ -48,14 +55,16 @@ def get_app_data_dir() -> Path:
 
     try:
         candidates.append(
-            Path.home() / ".traductor_profesional"
+            Path.home()
+            / ".traductor_profesional"
         )
     except Exception:
         pass
 
     try:
         candidates.append(
-            Path.cwd() / ".traductor_profesional"
+            Path.cwd()
+            / ".traductor_profesional"
         )
     except Exception:
         pass
@@ -63,7 +72,6 @@ def get_app_data_dir() -> Path:
     for directory in candidates:
 
         try:
-
             directory.mkdir(
                 parents=True,
                 exist_ok=True
@@ -79,12 +87,33 @@ def get_app_data_dir() -> Path:
 
 APP_DATA_DIR = get_app_data_dir()
 
-DB_PATH = APP_DATA_DIR / DB_NAME
+DB_PATH = (
+    APP_DATA_DIR
+    / DB_NAME
+)
 
-OUTPUT_DIR = APP_DATA_DIR / "traducciones"
+OUTPUT_DIR = (
+    APP_DATA_DIR
+    / "traducciones"
+)
+
+IMPORT_DIR = (
+    APP_DATA_DIR
+    / "libros_importados"
+)
+
 
 try:
     OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+except Exception:
+    pass
+
+
+try:
+    IMPORT_DIR.mkdir(
         parents=True,
         exist_ok=True
     )
@@ -159,9 +188,7 @@ def split_large_paragraph(
             continue
 
         if not current:
-
             current = sentence
-
             continue
 
         candidate = (
@@ -183,7 +210,9 @@ def split_large_paragraph(
             current = sentence
 
     if current:
-        parts.append(current)
+        parts.append(
+            current
+        )
 
     final_parts = []
 
@@ -191,7 +220,9 @@ def split_large_paragraph(
 
         if len(part) <= max_chars:
 
-            final_parts.append(part)
+            final_parts.append(
+                part
+            )
 
             continue
 
@@ -277,7 +308,9 @@ def split_text(
         candidate = (
             paragraph
             if not current
-            else current + "\n\n" + paragraph
+            else current
+            + "\n\n"
+            + paragraph
         )
 
         if len(candidate) <= MAX_CHUNK_CHARS:
@@ -287,6 +320,7 @@ def split_text(
         else:
 
             if current:
+
                 chunks.append(
                     current
                 )
@@ -294,6 +328,7 @@ def split_text(
             current = paragraph
 
     if current:
+
         chunks.append(
             current
         )
@@ -988,9 +1023,7 @@ Identifica el idioma principal del siguiente texto.
 Puede ser inglés, coreano, chino, español,
 japonés u otro idioma.
 
-Responde solamente con el nombre del idioma
-en inglés.
-
+Responde solamente con el nombre del idioma en inglés.
 No agregues explicaciones.
 
 TEXTO:
@@ -1422,18 +1455,14 @@ class EPUBImporter:
     )
 
     @staticmethod
-    def is_xhtml(
-        name
-    ):
+    def is_xhtml(name):
 
         return name.lower().endswith(
             EPUBImporter.XHTML_EXTENSIONS
         )
 
     @staticmethod
-    def extract_text_nodes(
-        path
-    ):
+    def extract_text_nodes(path):
 
         nodes = []
 
@@ -1687,7 +1716,7 @@ class PDFTextExporter:
 
 
 # ============================================================
-# WORKER
+# WORKER DE TRADUCCIÓN
 # ============================================================
 
 class TranslationWorker:
@@ -2055,9 +2084,15 @@ class TranslatorApp:
 
         self.stop_button = None
 
+        # Referencia permanente al servicio.
         self.file_picker = None
 
         self.build_page()
+
+
+    # ========================================================
+    # CONSTRUCCIÓN DE LA PÁGINA
+    # ========================================================
 
     def build_page(self):
 
@@ -2069,17 +2104,28 @@ class TranslatorApp:
 
         self.page.theme_mode = ft.ThemeMode.LIGHT
 
+
         # ====================================================
-        # FILE PICKER
+        # FILEPICKER
+        # ====================================================
         #
-        # ÚNICA ubicación del FilePicker.
+        # IMPORTANTE:
         #
-        # NO está dentro de controls=[].
-        # NO está dentro de Column.
-        # NO está dentro de Row.
-        # NO está dentro de Container.
-        # NO está dentro de page.add().
-        # NO se utiliza page.overlay.
+        # FilePicker se mantiene como SERVICIO.
+        #
+        # No se agrega a:
+        #   - page.overlay
+        #   - Column
+        #   - Row
+        #   - Container
+        #   - page.controls
+        #
+        # Se registra en page.services.
+        #
+        # El evento on_result se conecta después de crear
+        # la instancia para evitar incompatibilidades con
+        # versiones que no aceptan on_result en el constructor.
+        #
         # ====================================================
 
         self.file_picker = ft.FilePicker()
@@ -2088,9 +2134,12 @@ class TranslatorApp:
             self.on_file_selected
         )
 
-        self.page.services.append(
-            self.file_picker
-        )
+        if self.file_picker not in self.page.services:
+
+            self.page.services.append(
+                self.file_picker
+            )
+
 
         # ====================================================
         # CAMPOS
@@ -2182,8 +2231,9 @@ class TranslatorApp:
             disabled=True
         )
 
+
         # ====================================================
-        # BARRA DE PESTAÑAS
+        # PESTAÑAS
         # ====================================================
 
         tab_bar = ft.TabBar(
@@ -2239,6 +2289,11 @@ class TranslatorApp:
             )
         )
 
+
+    # ========================================================
+    # TARJETAS
+    # ========================================================
+
     def make_card(
         self,
         content
@@ -2255,7 +2310,21 @@ class TranslatorApp:
             border_radius=12
         )
 
+
+    # ========================================================
+    # PESTAÑA CARGAR
+    # ========================================================
+
     def build_load_view(self):
+
+        # ----------------------------------------------------
+        # BOTÓN SELECCIONAR LIBRO
+        # ----------------------------------------------------
+        #
+        # El evento on_click está conectado directamente
+        # a la función ASÍNCRONA select_file.
+        #
+        # ----------------------------------------------------
 
         select_button = ft.Button(
             content="Seleccionar libro",
@@ -2333,6 +2402,11 @@ class TranslatorApp:
             )
         )
 
+
+    # ========================================================
+    # PESTAÑA PROGRESO
+    # ========================================================
+
     def build_progress_view(self):
 
         card = self.make_card(
@@ -2372,6 +2446,11 @@ class TranslatorApp:
             content=card
         )
 
+
+    # ========================================================
+    # PESTAÑA LECTOR
+    # ========================================================
+
     def build_reader_view(self):
 
         return ft.Container(
@@ -2399,6 +2478,11 @@ class TranslatorApp:
                 )
             )
         )
+
+
+    # ========================================================
+    # PESTAÑA CONFIGURACIÓN
+    # ========================================================
 
     def build_settings_view(self):
 
@@ -2432,96 +2516,476 @@ class TranslatorApp:
             )
         )
 
+
     # ========================================================
-    # SELECCIONAR ARCHIVO
+    # ABRIR SELECTOR DE ARCHIVOS
+    # ========================================================
+    #
+    # ESTA ES LA FUNCIÓN CORREGIDA.
+    #
+    # Es ASÍNCRONA.
+    #
+    # Se utiliza:
+    #
+    #     files = await self.file_picker.pick_files(...)
+    #
+    # El resultado se procesa directamente.
+    #
+    # with_data=True permite obtener bytes cuando la
+    # plataforma no proporciona una ruta física.
+    #
     # ========================================================
 
-    def select_file(
+    async def select_file(
         self,
         e
     ):
 
         try:
 
-            self.file_picker.pick_files(
+            self.status_text.value = (
+                "Abriendo explorador de archivos..."
+            )
+
+            self.add_log(
+                "Solicitando apertura del explorador de archivos..."
+            )
+
+            self.safe_update()
+
+
+            # ------------------------------------------------
+            # VERIFICAR QUE EL SERVICIO SIGA REGISTRADO
+            # ------------------------------------------------
+
+            if self.file_picker is None:
+
+                raise RuntimeError(
+                    "FilePicker no está inicializado."
+                )
+
+            if self.file_picker not in self.page.services:
+
+                self.page.services.append(
+                    self.file_picker
+                )
+
+
+            # ------------------------------------------------
+            # ABRIR SELECTOR NATIVO
+            # ------------------------------------------------
+            #
+            # IMPORTANTE:
+            #
+            # pick_files() es async en esta API.
+            #
+            # ------------------------------------------------
+
+            files = await self.file_picker.pick_files(
+                dialog_title="Seleccionar libro",
                 allow_multiple=False,
+                file_type=ft.FilePickerFileType.CUSTOM,
                 allowed_extensions=[
                     "pdf",
                     "epub",
                     "txt"
-                ]
+                ],
+                with_data=True
             )
+
+
+            # ------------------------------------------------
+            # CANCELACIÓN
+            # ------------------------------------------------
+
+            if not files:
+
+                self.status_text.value = (
+                    "Selección cancelada."
+                )
+
+                self.add_log(
+                    "El usuario canceló la selección."
+                )
+
+                self.safe_update()
+
+                return
+
+
+            # ------------------------------------------------
+            # ARCHIVO SELECCIONADO
+            # ------------------------------------------------
+
+            selected = files[0]
+
+            await self.process_selected_file(
+                selected
+            )
+
 
         except Exception as exc:
 
-            self.add_log(
-                f"Error al abrir selector: {exc}"
+            self.current_file_path = None
+
+            self.current_source_type = None
+
+            self.file_name_text.value = (
+                "No se pudo abrir el selector"
             )
 
+            self.file_info_text.value = (
+                "Revisa la instalación de Flet y vuelve a intentar."
+            )
+
+            self.status_text.value = (
+                "Error al abrir el explorador."
+            )
+
+            self.add_log(
+                "ERROR FilePicker: "
+                + str(exc)
+            )
+
+            self.safe_update()
+
+
     # ========================================================
-    # ARCHIVO SELECCIONADO
+    # EVENTO on_result
+    # ========================================================
+    #
+    # Se conserva porque el servicio tiene soporte para
+    # on_result.
+    #
+    # En la ruta async principal, select_file() procesa
+    # directamente la lista retornada por await.
+    #
+    # Este método permite además procesar resultados que
+    # lleguen mediante el evento del servicio.
+    #
     # ========================================================
 
     def on_file_selected(
         self,
-        event
+        e
     ):
 
-        files = getattr(
-            event,
-            "files",
-            None
-        )
+        try:
 
-        if not files:
-            return
+            files = getattr(
+                e,
+                "files",
+                None
+            )
 
-        selected = files[0]
+            if not files:
+                return
 
-        path = getattr(
-            selected,
-            "path",
-            None
-        )
+            selected = files[0]
 
-        if not path:
+            try:
+
+                loop = asyncio.get_running_loop()
+
+                loop.create_task(
+                    self.process_selected_file(
+                        selected
+                    )
+                )
+
+            except RuntimeError:
+
+                # Si el evento se ejecuta fuera de un
+                # event loop, procesamos mediante un hilo
+                # con asyncio independiente.
+
+                threading.Thread(
+                    target=lambda: asyncio.run(
+                        self.process_selected_file(
+                            selected
+                        )
+                    ),
+                    daemon=True
+                ).start()
+
+        except Exception as exc:
 
             self.add_log(
-                "No se pudo obtener la ruta del archivo."
+                "ERROR en on_result: "
+                + str(exc)
             )
 
-            return
-
-        self.current_file_path = path
-
-        extension = Path(
-            path
-        ).suffix.lower()
-
-        self.current_source_type = (
-            extension.replace(
-                ".",
-                ""
+            self.status_text.value = (
+                "Error al recibir el archivo."
             )
+
+            self.safe_update()
+
+
+    # ========================================================
+    # PROCESAR ARCHIVO SELECCIONADO
+    # ========================================================
+
+    async def process_selected_file(
+        self,
+        selected
+    ):
+
+        try:
+
+            selected_name = getattr(
+                selected,
+                "name",
+                None
+            )
+
+            if not selected_name:
+
+                selected_name = (
+                    "libro_importado"
+                )
+
+
+            selected_path = getattr(
+                selected,
+                "path",
+                None
+            )
+
+            selected_bytes = getattr(
+                selected,
+                "bytes",
+                None
+            )
+
+
+            self.add_log(
+                f"Archivo recibido: {selected_name}"
+            )
+
+
+            local_path = None
+
+
+            # ------------------------------------------------
+            # CASO 1: RUTA LOCAL
+            # ------------------------------------------------
+
+            if selected_path:
+
+                try:
+
+                    path_object = Path(
+                        selected_path
+                    )
+
+                    if (
+                        path_object.exists()
+                        and path_object.is_file()
+                    ):
+
+                        local_path = path_object
+
+                        self.add_log(
+                            "Se obtuvo una ruta local válida."
+                        )
+
+                except Exception as exc:
+
+                    self.add_log(
+                        "La ruta proporcionada no pudo utilizarse: "
+                        + str(exc)
+                    )
+
+
+            # ------------------------------------------------
+            # CASO 2: BYTES
+            # ------------------------------------------------
+            #
+            # Muy importante para Android.
+            #
+            # Algunos proveedores de archivos pueden no
+            # proporcionar una ruta física utilizable.
+            #
+            # ------------------------------------------------
+
+            if local_path is None and selected_bytes:
+
+                self.add_log(
+                    "No hay ruta local utilizable."
+                )
+
+                self.add_log(
+                    "Copiando el archivo recibido mediante bytes..."
+                )
+
+                local_path = (
+                    self.save_selected_bytes(
+                        selected_bytes,
+                        selected_name
+                    )
+                )
+
+
+            # ------------------------------------------------
+            # CASO 3: SIN RUTA NI BYTES
+            # ------------------------------------------------
+
+            if local_path is None:
+
+                raise RuntimeError(
+                    "El selector no proporcionó una ruta "
+                    "local ni los bytes del archivo. "
+                    "No es posible acceder al contenido."
+                )
+
+
+            # ------------------------------------------------
+            # VALIDAR EXTENSIÓN
+            # ------------------------------------------------
+
+            extension = (
+                local_path.suffix.lower()
+            )
+
+            if extension not in {
+                ".pdf",
+                ".epub",
+                ".txt"
+            }:
+
+                raise ValueError(
+                    "Formato no compatible. "
+                    "Selecciona PDF, EPUB o TXT."
+                )
+
+
+            # ------------------------------------------------
+            # GUARDAR ESTADO
+            # ------------------------------------------------
+
+            self.current_file_path = str(
+                local_path
+            )
+
+            self.current_source_type = (
+                extension.replace(
+                    ".",
+                    ""
+                )
+            )
+
+            self.file_name_text.value = (
+                local_path.name
+            )
+
+            self.file_info_text.value = (
+                f"Formato: {extension.upper()} | "
+                f"Archivo preparado"
+            )
+
+            self.status_text.value = (
+                "Archivo listo para traducir."
+            )
+
+            self.add_log(
+                f"Archivo seleccionado: {local_path.name}"
+            )
+
+            self.add_log(
+                f"Ruta local: {local_path}"
+            )
+
+            self.safe_update()
+
+
+        except Exception as exc:
+
+            self.current_file_path = None
+
+            self.current_source_type = None
+
+            self.file_name_text.value = (
+                "No se pudo cargar el archivo"
+            )
+
+            self.file_info_text.value = (
+                "Selecciona nuevamente un PDF, EPUB o TXT."
+            )
+
+            self.status_text.value = (
+                "Error al cargar el archivo."
+            )
+
+            self.add_log(
+                "ERROR al procesar archivo: "
+                + str(exc)
+            )
+
+            self.safe_update()
+
+
+    # ========================================================
+    # COPIAR BYTES A ALMACENAMIENTO LOCAL
+    # ========================================================
+
+    def save_selected_bytes(
+        self,
+        file_bytes,
+        original_name
+    ):
+
+        if not file_bytes:
+
+            raise ValueError(
+                "El selector devolvió bytes vacíos."
+            )
+
+
+        safe_name = re.sub(
+            r"[^\w.\-]+",
+            "_",
+            Path(original_name).name
         )
 
-        self.file_name_text.value = (
-            Path(path).name
+
+        if not safe_name:
+
+            safe_name = (
+                "libro_importado"
+            )
+
+
+        timestamp = int(
+            time.time() * 1000
         )
 
-        self.file_info_text.value = (
-            f"Formato: {extension.upper()} | Archivo preparado"
+
+        destination = (
+            IMPORT_DIR
+            / f"{timestamp}_{safe_name}"
         )
 
-        self.status_text.value = (
-            "Archivo listo."
-        )
 
-        self.add_log(
-            f"Archivo seleccionado: {Path(path).name}"
-        )
+        with open(
+            destination,
+            "wb"
+        ) as output_file:
 
-        self.safe_update()
+            output_file.write(
+                file_bytes
+            )
+
+
+        if not destination.exists():
+
+            raise IOError(
+                "No se pudo crear la copia local del archivo."
+            )
+
+
+        return destination
+
 
     # ========================================================
     # CONFIGURACIÓN
@@ -2542,6 +3006,7 @@ class TranslatorApp:
 
         self.safe_update()
 
+
     # ========================================================
     # LOG
     # ========================================================
@@ -2554,6 +3019,9 @@ class TranslatorApp:
         timestamp = time.strftime(
             "%H:%M:%S"
         )
+
+        if self.log_view is None:
+            return
 
         self.log_view.controls.append(
             ft.Text(
@@ -2569,8 +3037,9 @@ class TranslatorApp:
         except Exception:
             pass
 
+
     # ========================================================
-    # INICIAR
+    # INICIAR TRADUCCIÓN
     # ========================================================
 
     def start_translation(
@@ -2589,6 +3058,7 @@ class TranslatorApp:
 
             return
 
+
         if not self.current_file_path:
 
             self.status_text.value = (
@@ -2603,6 +3073,24 @@ class TranslatorApp:
 
             return
 
+
+        if not os.path.isfile(
+            self.current_file_path
+        ):
+
+            self.status_text.value = (
+                "El archivo seleccionado ya no está disponible."
+            )
+
+            self.add_log(
+                "La ruta local del archivo no existe."
+            )
+
+            self.safe_update()
+
+            return
+
+
         api_key = (
             self.api_key_field.value
             or os.environ.get(
@@ -2610,6 +3098,7 @@ class TranslatorApp:
                 ""
             )
         ).strip()
+
 
         if not api_key:
 
@@ -2625,16 +3114,19 @@ class TranslatorApp:
 
             return
 
+
         target_language = (
             self.target_dropdown.value
             or DEFAULT_TARGET_LANGUAGE
         )
+
 
         if target_language not in TARGET_LANGUAGES:
 
             target_language = (
                 DEFAULT_TARGET_LANGUAGE
             )
+
 
         try:
 
@@ -2687,6 +3179,7 @@ class TranslatorApp:
 
             self.safe_update()
 
+
     # ========================================================
     # PREPARAR LIBRO
     # ========================================================
@@ -2707,6 +3200,7 @@ class TranslatorApp:
 
         source_language = "auto"
 
+
         if extension == ".txt":
 
             source_type = "txt"
@@ -2719,6 +3213,7 @@ class TranslatorApp:
 
             nodes = []
 
+
         elif extension == ".pdf":
 
             source_type = "pdf"
@@ -2730,6 +3225,7 @@ class TranslatorApp:
             )
 
             nodes = []
+
 
         elif extension == ".epub":
 
@@ -2750,6 +3246,7 @@ class TranslatorApp:
                 in nodes
             ]
 
+
         else:
 
             raise ValueError(
@@ -2757,16 +3254,19 @@ class TranslatorApp:
                 "Usa PDF, EPUB o TXT."
             )
 
+
         if not extracted:
 
             raise ValueError(
                 "No se encontró texto en el archivo."
             )
 
+
         sample = "\n".join(
             item[1]
             for item in extracted[:5]
         )
+
 
         local_language = (
             detect_language_local(
@@ -2774,9 +3274,13 @@ class TranslatorApp:
             )
         )
 
+
         if local_language:
 
-            source_language = local_language
+            source_language = (
+                local_language
+            )
+
 
         book_id = self.database.create_book(
             title=title,
@@ -2785,6 +3289,7 @@ class TranslatorApp:
             source_language=source_language,
             target_language=target_language
         )
+
 
         if extension == ".epub":
 
@@ -2805,6 +3310,7 @@ class TranslatorApp:
 
             total = len(nodes)
 
+
         else:
 
             for order, (
@@ -2821,6 +3327,7 @@ class TranslatorApp:
 
             total = len(extracted)
 
+
         self.database.set_total_chunks(
             book_id,
             total
@@ -2831,6 +3338,7 @@ class TranslatorApp:
             "pendiente"
         )
 
+
         self.add_log(
             f"Libro: {title}"
         )
@@ -2838,6 +3346,7 @@ class TranslatorApp:
         self.add_log(
             f"Bloques: {total}"
         )
+
 
         if source_language == "auto":
 
@@ -2851,14 +3360,17 @@ class TranslatorApp:
                 f"Idioma detectado inicialmente: {source_language}"
             )
 
+
         self.add_log(
             f"Idioma de destino: {target_language}"
         )
 
+
         return book_id
 
+
     # ========================================================
-    # EVENTOS WORKER
+    # EVENTOS DEL WORKER
     # ========================================================
 
     def worker_event(
@@ -2871,6 +3383,7 @@ class TranslatorApp:
             event_type = event.get(
                 "type"
             )
+
 
             if event_type == "started":
 
@@ -2889,6 +3402,7 @@ class TranslatorApp:
 
                 self.safe_update()
 
+
             elif event_type == "language":
 
                 language = event.get(
@@ -2905,6 +3419,7 @@ class TranslatorApp:
                 )
 
                 self.safe_update()
+
 
             elif event_type == "progress":
 
@@ -2945,6 +3460,7 @@ class TranslatorApp:
 
                 self.safe_update()
 
+
             elif event_type == "completed":
 
                 self.progress_bar.value = 1
@@ -2971,6 +3487,7 @@ class TranslatorApp:
 
                 self.safe_update()
 
+
             elif event_type == "stopped":
 
                 self.status_text.value = (
@@ -2987,6 +3504,7 @@ class TranslatorApp:
 
                 self.safe_update()
 
+
             elif event_type == "partial":
 
                 self.status_text.value = (
@@ -3002,6 +3520,7 @@ class TranslatorApp:
                 self.stop_button.disabled = True
 
                 self.safe_update()
+
 
             elif event_type == "error":
 
@@ -3024,8 +3543,10 @@ class TranslatorApp:
 
                 self.safe_update()
 
+
         except Exception:
             pass
+
 
     # ========================================================
     # DETENER
@@ -3050,8 +3571,9 @@ class TranslatorApp:
 
             self.safe_update()
 
+
     # ========================================================
-    # EXPORTAR
+    # EXPORTAR RESULTADO
     # ========================================================
 
     def export_result(self):
@@ -3093,6 +3615,7 @@ class TranslatorApp:
             Path(original_path).stem
         )
 
+
         if source_type == "epub":
 
             output_path = (
@@ -3124,6 +3647,7 @@ class TranslatorApp:
                 translations=translations
             )
 
+
         elif source_type == "pdf":
 
             output_path = (
@@ -3136,6 +3660,7 @@ class TranslatorApp:
                 str(output_path)
             )
 
+
         else:
 
             output_path = (
@@ -3147,6 +3672,7 @@ class TranslatorApp:
                 chunks,
                 str(output_path)
             )
+
 
         self.database.set_output_path(
             self.current_book_id,
@@ -3164,6 +3690,7 @@ class TranslatorApp:
         )
 
         self.safe_update()
+
 
     # ========================================================
     # LECTOR
@@ -3193,8 +3720,9 @@ class TranslatorApp:
             parts
         )
 
+
     # ========================================================
-    # ACTUALIZACIÓN
+    # ACTUALIZACIÓN SEGURA
     # ========================================================
 
     def safe_update(self):
@@ -3217,6 +3745,10 @@ def main(page):
         page
     )
 
+
+# ============================================================
+# EJECUCIÓN
+# ============================================================
 
 if __name__ == "__main__":
 
